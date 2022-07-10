@@ -1,10 +1,10 @@
-#! /usr/bin/env python3
-
-from argparse import ArgumentParser
+from argparse import ArgumentParser, BooleanOptionalAction
 from prawny.lexer import Lexer
 from prawny.parser import Parser
 from prawny.py import Py
+from autopep8 import fix_code
 from functools import partial
+from io import StringIO
 import sys
 import os
 
@@ -12,7 +12,13 @@ import os
 def main():
     parser = ArgumentParser(description='execute prawny (.prawn) code')
     parser.add_argument(
-        '-f', '--file', help='the source file to execute', default='')
+        '-f', '--file', help='the source file to execute')
+    parser.add_argument(
+        '-o', '--out', help='the file to output the compiled python code to')
+    parser.add_argument(
+        '-F', '--force', type=bool,
+        help='force saving the compiled code even if a file already exists at '
+        'the destination', default=False, action=BooleanOptionalAction)
     args = parser.parse_args()
     code = ''
 
@@ -33,7 +39,31 @@ def main():
             parser.error(
                 f'insufficient permissions on {args.file}, unable to read')
 
-    Py(Parser(Lexer(code).tokenize()).parse()).run()
+    py = Py(Parser(Lexer(code).tokenize()).parse())
+
+    if args.out:
+        if os.path.isfile(args.out):
+            if args.force:
+                parser.error(
+                    f'{args.file} already exists, use -F/--force to continue '
+                    'or rename or delete the file')
+            else:
+                print(f'{args.file} already exists but -F/--force has been '
+                      'specified, forcing save')
+
+        file = StringIO(fix_code(py.py))
+
+        try:
+            with open(args.out, 'w') as outf:
+                for chunk in iter(partial(file.read, 32), ''):
+                    outf.write(chunk)
+        except PermissionError:
+            parser.error(
+                f'insufficient permissions on {args.out}, unable to write')
+        except IOError:
+            parser.error(f'ran out of storage while writing to {args.out}')
+    else:
+        py.run()
 
 
 if __name__ == '__main__':

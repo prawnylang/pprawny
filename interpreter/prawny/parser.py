@@ -1,5 +1,5 @@
 from tokenize import *
-from typing import Tuple
+from typing import Tuple, Union
 from .builtins import *
 
 
@@ -9,8 +9,8 @@ class Parser:
         self.py = ''
 
     def parse(self) -> str:
-        indented = False
-        in_dbl_op = None
+        indented: bool = False
+        in_dbl_op: Union[None, str] = None
 
         for i, token in enumerate(self.tokens):
             if token.type == INDENT:
